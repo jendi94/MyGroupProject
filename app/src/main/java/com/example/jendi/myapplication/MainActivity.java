@@ -1,41 +1,32 @@
 package com.example.jendi.myapplication;
 
 import android.Manifest;
-import android.app.Activity;
-import android.content.Context;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
-import android.support.constraint.ConstraintLayout;
+import android.os.Bundle;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.view.View;
+import android.util.Log;
 
-import com.google.android.gms.location.FusedLocationProviderClient;
-import com.google.android.gms.location.LocationCallback;
-import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
-import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.LatLng;
-import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.gms.tasks.OnSuccessListener;
 
-import static android.os.SystemClock.sleep;
-
-public class MainActivity extends AppCompatActivity implements OnMapReadyCallback, com.google.android.gms.location.LocationListener {
-    private MapView mapView;
-    private GoogleMap gMap;
-    private FusedLocationProviderClient fusedLocationProviderClient;
-    private LocationCallback mLocationCallback;
-
+public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
+    private static final String TAG = MainActivity.class.getName();
     private static final String MAP_VIEW_BUNDLE_KEY = "MapViewBundleKey";
+    private static final int PERMISSION_REQUEST_ACCESS_COARSE_LOCATION = 1;
+    private static final double ACCURACY_THRESHOLD = 1.0;
+
+    private MapView mapView;
+    private GoogleMap googleMap;
+    private LocationManager locationManager;
+    private LocationListener locationListener;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -46,38 +37,34 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (savedInstanceState != null) {
             mapViewBundle = savedInstanceState.getBundle(MAP_VIEW_BUNDLE_KEY);
         }
-
         mapView = findViewById(R.id.mapView);
         mapView.onCreate(mapViewBundle);
         mapView.getMapAsync(this);
-        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
 
-        LocationRequest locationRequest = LocationRequest.create();
-        locationRequest.setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY);
-        locationRequest.setInterval(5000);
-        locationRequest.setFastestInterval(1000);
+        locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        locationListener = new SingleQueryListener();
 
-        mLocationCallback = new LocationCallback() {
-            @Override
-            public void onLocationResult(LocationResult locationResult) {
-                if (locationResult == null) {
-                    return;
-                }
-                for (Location l : locationResult.getLocations()) {
-                    LatLng latLng = new LatLng(l.getLatitude(), l.getLongitude());
-                    gMap.moveCamera(CameraUpdateFactory.newLatLng(latLng));
-                    gMap.addMarker(new MarkerOptions()
-                        .position(latLng)
-                        .title("Tutaj jestem xD"));
-                }
-            }
-        };
-
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, 0);
-            return;
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_ACCESS_COARSE_LOCATION);
         }
-        fusedLocationProviderClient.requestLocationUpdates(locationRequest, mLocationCallback, null /* Looper */);
+        else {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, locationListener);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        switch (requestCode) {
+            case PERMISSION_REQUEST_ACCESS_COARSE_LOCATION:
+                if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                        //requestPermissions
+                        return;
+                    }
+                    locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, locationListener);
+                }
+                break;
+        }
     }
 
     @Override
@@ -131,36 +118,37 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Override
     public void onMapReady(final GoogleMap googleMap) {
-        gMap = googleMap;
-        gMap.setMinZoomPreference(16);
-        //LatLng gd = new LatLng(52, 18);
-//        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-//            // TODO: Consider calling
-//            //    ActivityCompat#requestPermissions
-//            // here to request the missing permissions, and then overriding
-//            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-//            //                                          int[] grantResults)
-//            // to handle the case where the user grants the permission. See the documentation
-//            // for ActivityCompat#requestPermissions for more details.
-//            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, 0);
-//            return;
-//        }
-//        fusedLocationProviderClient.getLastLocation().addOnSuccessListener(this, new OnSuccessListener<Location>() {
-//            @Override
-//            public void onSuccess(Location location) {
-//                if (location != null) {
-//                    LatLng gd = new LatLng(location.getLongitude(), location.getLatitude());
-//                    LatLng gd2 = new LatLng(location.getLatitude(), location.getLongitude());
-//                    googleMap.moveCamera(CameraUpdateFactory.newLatLng(gd));
-//                    sleep(2000);
-//                    googleMap.moveCamera(CameraUpdateFactory.newLatLng(gd2));
-//                }
-//            }
-//        });
- }
 
-    @Override
-    public void onLocationChanged(Location location) {
+    }
 
+    private class SingleQueryListener implements LocationListener {
+
+        @Override
+        public void onLocationChanged(Location location) {
+            if (location != null) {
+                Log.i(TAG, String.valueOf(location.getAccuracy()));
+                if (location.getAccuracy() <= ACCURACY_THRESHOLD) {
+                    LatLng position = new LatLng(location.getLatitude(), location.getLongitude());
+                    Log.i(TAG, position.toString());
+                    googleMap.moveCamera(CameraUpdateFactory.newLatLng(position));
+                    locationManager.removeUpdates(this);
+                }
+            }
+        }
+
+        @Override
+        public void onStatusChanged(String s, int i, Bundle bundle) {
+
+        }
+
+        @Override
+        public void onProviderEnabled(String s) {
+
+        }
+
+        @Override
+        public void onProviderDisabled(String s) {
+
+        }
     }
 }
